@@ -65,6 +65,31 @@ top to bottom. It walks through:
    for age-by-lapsed-status)
 5. A logistic regression predicting the lapsed-proxy label, with feature coefficients
 
+## Running the dashboard
+
+**Interactive (Streamlit):**
+
+```bash
+pip install -e .
+streamlit run app.py
+```
+
+Opens a local dashboard with sidebar filters (plan/country/device) and four
+tabs: Overview, Segments, Statistical Tests, and Churn-Risk Model. Sample
+data is generated automatically on first run if `data/raw/` is empty.
+
+**Static snapshot (GitHub Pages):**
+
+A read-only snapshot of the full dataset is published at
+https://kchyslope.github.io/streaming-subscriber-analytics/. To regenerate
+it after code changes:
+
+```bash
+python scripts/build_static_site.py
+git add docs/index.html
+git commit -m "docs: refresh static dashboard snapshot"
+```
+
 ## The "lapsed" label, and why it's a proxy
 
 This dataset has no real churn flag. `is_lapsed` in `cleaning.py` is a **recency proxy**:
@@ -93,3 +118,6 @@ except `loading.load_subscribers`. A GUI layer would typically:
 3. Pass the result into the matching `viz.*` function and embed the returned Plotly
    `Figure` (e.g. via `QWebEngineView` for PyQt/PySide, or natively if building with
    Streamlit/Dash).
+
+This is exactly what `app.py` does — see "Running the dashboard" above for the
+working example.

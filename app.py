@@ -129,7 +129,11 @@ with tab_tests:
         )
 
 with tab_model:
-    if filtered_df["is_lapsed"].nunique() < 2 or len(filtered_df) < 20:
+    if (
+        filtered_df["is_lapsed"].nunique() < 2
+        or filtered_df["is_lapsed"].value_counts().min() < 2
+        or len(filtered_df) < 20
+    ):
         st.info(
             "Not enough data in the current filter selection to train the churn-risk model "
             "(need both lapsed and active subscribers, and a reasonable sample size)."
@@ -143,7 +147,10 @@ with tab_model:
 
         col1, col2, col3, col4 = st.columns(4)
         col1.metric("Accuracy", f"{model_result.accuracy:.2%}")
-        col2.metric("ROC-AUC", f"{model_result.roc_auc:.3f}" if model_result.roc_auc else "N/A")
+        col2.metric(
+            "ROC-AUC",
+            f"{model_result.roc_auc:.3f}" if model_result.roc_auc is not None else "N/A",
+        )
         col3.metric("Train rows", model_result.n_train)
         col4.metric("Test rows", model_result.n_test)
 

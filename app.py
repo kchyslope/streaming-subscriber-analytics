@@ -8,6 +8,7 @@ import streamlit as st
 from subscriber_analytics.analysis import (
     anova_revenue_by_plan,
     chi_square_association,
+    fit_churn_proxy_model,
     revenue_by,
     segment_counts,
     summarize,
@@ -16,6 +17,7 @@ from subscriber_analytics.analysis import (
 from subscriber_analytics.data_pipeline import load_and_clean_data
 from subscriber_analytics.viz import (
     age_distribution_histogram,
+    churn_model_coefficients_chart,
     lapsed_rate_by_plan_chart,
     revenue_by_plan_chart,
     segment_share_pie,
@@ -124,4 +126,36 @@ with tab_tests:
         ttest_result = ttest_age_by_lapsed_status(filtered_df)
         _render_test_result(
             "Age: Lapsed vs. Active (Welch's t-test)", ttest_result, "t_stat", "t-statistic"
+        )
+
+with tab_model:
+    if filtered_df["is_lapsed"].nunique() < 2 or len(filtered_df) < 20:
+        st.info(
+            "Not enough data in the current filter selection to train the churn-risk model "
+            "(need both lapsed and active subscribers, and a reasonable sample size)."
+        )
+    else:
+        st.caption(
+            "`is_lapsed` is a recency-based proxy (no recent payment), not verified churn — "
+            "this demonstrates the modeling workflow, not a production churn model."
+        )
+        model_result = fit_churn_proxy_model(filtered_df)
+
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("Accuracy", f"{model_result.accuracy:.2%}")
+        col2.metric("ROC-AUC", f"{model_result.roc_auc:.3f}" if model_result.roc_auc else "N/A")
+        col3.metric("Train rows", model_result.n_train)
+        col4.metric("Test rows", model_result.n_test)
+
+        st.write("Confusion matrix (rows = actual, columns = predicted):")
+        st.dataframe(
+            pd.DataFrame(
+                model_result.confusion_matrix,
+                index=["Actual: Active", "Actual: Lapsed"],
+                columns=["Predicted: Active", "Predicted: Lapsed"],
+            )
+        )
+
+        st.plotly_chart(
+            churn_model_coefficients_chart(model_result.coefficients), use_container_width=True
         )

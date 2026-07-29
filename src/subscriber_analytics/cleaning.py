@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import warnings
+
 import pandas as pd
 
 DEFAULT_LAPSED_THRESHOLD_DAYS = 45
@@ -21,10 +23,17 @@ def clean_subscribers(
     """
     df = df.copy()
 
-    df["join_date"] = pd.to_datetime(df["join_date"], dayfirst=True, errors="coerce")
-    df["last_payment_date"] = pd.to_datetime(
-        df["last_payment_date"], dayfirst=True, errors="coerce"
-    )
+    # dayfirst=True (no explicit format) correctly parses both the real
+    # dataset's DD-MM-YY dates and this project's ISO sample dates. Do NOT
+    # add format="mixed" here -- combined with dayfirst=True it silently
+    # mis-parses unambiguous ISO dates (verified: shifts some dates by
+    # months without raising an error).
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", message="Parsing dates in.*dayfirst")
+        df["join_date"] = pd.to_datetime(df["join_date"], dayfirst=True, errors="coerce")
+        df["last_payment_date"] = pd.to_datetime(
+            df["last_payment_date"], dayfirst=True, errors="coerce"
+        )
 
     before = len(df)
     df = df.dropna(subset=["join_date", "last_payment_date", "monthly_revenue", "age"])

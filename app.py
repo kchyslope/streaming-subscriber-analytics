@@ -5,9 +5,15 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
-from subscriber_analytics.analysis import summarize
+from subscriber_analytics.analysis import revenue_by, segment_counts, summarize
 from subscriber_analytics.data_pipeline import load_and_clean_data
-from subscriber_analytics.viz import age_distribution_histogram, signups_over_time_chart
+from subscriber_analytics.viz import (
+    age_distribution_histogram,
+    lapsed_rate_by_plan_chart,
+    revenue_by_plan_chart,
+    segment_share_pie,
+    signups_over_time_chart,
+)
 
 st.set_page_config(page_title="Streaming Subscriber Analytics", layout="wide")
 
@@ -64,3 +70,20 @@ with tab_overview:
 
         st.plotly_chart(signups_over_time_chart(filtered_df), use_container_width=True)
         st.plotly_chart(age_distribution_histogram(filtered_df), use_container_width=True)
+
+with tab_segments:
+    if filtered_df.empty:
+        st.info("No subscribers match the current filter selection.")
+    else:
+        group_by = st.selectbox(
+            "Group by", ["subscription_type", "country", "device", "gender"]
+        )
+
+        revenue_df = revenue_by(filtered_df, group_by)
+        st.plotly_chart(revenue_by_plan_chart(revenue_df, group_by), use_container_width=True)
+        st.dataframe(revenue_df, use_container_width=True)
+
+        segment_df = segment_counts(filtered_df, group_by)
+        st.plotly_chart(segment_share_pie(segment_df, group_by), use_container_width=True)
+
+        st.plotly_chart(lapsed_rate_by_plan_chart(filtered_df), use_container_width=True)

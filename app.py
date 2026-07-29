@@ -5,7 +5,14 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
-from subscriber_analytics.analysis import revenue_by, segment_counts, summarize
+from subscriber_analytics.analysis import (
+    anova_revenue_by_plan,
+    chi_square_association,
+    revenue_by,
+    segment_counts,
+    summarize,
+    ttest_age_by_lapsed_status,
+)
 from subscriber_analytics.data_pipeline import load_and_clean_data
 from subscriber_analytics.viz import (
     age_distribution_histogram,
@@ -87,3 +94,34 @@ with tab_segments:
         st.plotly_chart(segment_share_pie(segment_df, group_by), use_container_width=True)
 
         st.plotly_chart(lapsed_rate_by_plan_chart(filtered_df), use_container_width=True)
+
+
+def _render_test_result(title: str, result: dict, stat_key: str, stat_label: str) -> None:
+    st.subheader(title)
+    col1, col2, col3 = st.columns(3)
+    col1.metric(stat_label, result[stat_key])
+    col2.metric("p-value", result["p_value"])
+    verdict = "Significant (p < 0.05)" if result["significant_at_0.05"] else "Not significant"
+    col3.metric("Result", verdict)
+
+
+with tab_tests:
+    if len(filtered_df["subscription_type"].unique()) < 2:
+        st.info("Select at least two subscription plans to run the ANOVA and chi-square tests.")
+    elif filtered_df["is_lapsed"].nunique() < 2:
+        st.info("Current filter selection has only one lapsed/active group; the t-test needs both.")
+    else:
+        chi2_result = chi_square_association(filtered_df, "subscription_type", "device")
+        _render_test_result(
+            "Plan vs. Device (Chi-Square Test of Independence)", chi2_result, "chi2", "Chi-square"
+        )
+
+        anova_result = anova_revenue_by_plan(filtered_df)
+        _render_test_result(
+            "Revenue by Plan (One-Way ANOVA)", anova_result, "f_stat", "F-statistic"
+        )
+
+        ttest_result = ttest_age_by_lapsed_status(filtered_df)
+        _render_test_result(
+            "Age: Lapsed vs. Active (Welch's t-test)", ttest_result, "t_stat", "t-statistic"
+        )

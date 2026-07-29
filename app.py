@@ -26,6 +26,8 @@ from subscriber_analytics.viz import (
 
 st.set_page_config(page_title="Streaming Subscriber Analytics", layout="wide")
 
+NO_SUBSCRIBERS_MESSAGE = "No subscribers match the current filter selection."
+
 
 @st.cache_data
 def get_data() -> pd.DataFrame:
@@ -61,13 +63,23 @@ selected_devices = st.sidebar.multiselect("Device", all_devices, default=all_dev
 filtered_df = filter_dataframe(df, selected_plans, selected_countries, selected_devices)
 st.sidebar.caption(f"{len(filtered_df)} of {len(df)} subscribers selected")
 
+
+def _render_test_result(title: str, result: dict, stat_key: str, stat_label: str) -> None:
+    st.subheader(title)
+    col1, col2, col3 = st.columns(3)
+    col1.metric(stat_label, result[stat_key])
+    col2.metric("p-value", result["p_value"])
+    verdict = "Significant (p < 0.05)" if result["significant_at_0.05"] else "Not significant"
+    col3.metric("Result", verdict)
+
+
 tab_overview, tab_segments, tab_tests, tab_model = st.tabs(
     ["Overview", "Segments", "Statistical Tests", "Churn-Risk Model"]
 )
 
 with tab_overview:
     if filtered_df.empty:
-        st.info("No subscribers match the current filter selection.")
+        st.info(NO_SUBSCRIBERS_MESSAGE)
     else:
         stats = summarize(filtered_df)
         col1, col2, col3, col4, col5 = st.columns(5)
@@ -82,7 +94,7 @@ with tab_overview:
 
 with tab_segments:
     if filtered_df.empty:
-        st.info("No subscribers match the current filter selection.")
+        st.info(NO_SUBSCRIBERS_MESSAGE)
     else:
         group_by = st.selectbox(
             "Group by", ["subscription_type", "country", "device", "gender"]
@@ -98,35 +110,33 @@ with tab_segments:
         st.plotly_chart(lapsed_rate_by_plan_chart(filtered_df), use_container_width=True)
 
 
-def _render_test_result(title: str, result: dict, stat_key: str, stat_label: str) -> None:
-    st.subheader(title)
-    col1, col2, col3 = st.columns(3)
-    col1.metric(stat_label, result[stat_key])
-    col2.metric("p-value", result["p_value"])
-    verdict = "Significant (p < 0.05)" if result["significant_at_0.05"] else "Not significant"
-    col3.metric("Result", verdict)
-
-
 with tab_tests:
-    if len(filtered_df["subscription_type"].unique()) < 2:
-        st.info("Select at least two subscription plans to run the ANOVA and chi-square tests.")
-    elif filtered_df["is_lapsed"].nunique() < 2:
-        st.info("Current filter selection has only one lapsed/active group; the t-test needs both.")
+    if filtered_df.empty:
+        st.info(NO_SUBSCRIBERS_MESSAGE)
     else:
-        chi2_result = chi_square_association(filtered_df, "subscription_type", "device")
-        _render_test_result(
-            "Plan vs. Device (Chi-Square Test of Independence)", chi2_result, "chi2", "Chi-square"
-        )
+        if filtered_df["subscription_type"].nunique() < 2 or filtered_df["device"].nunique() < 2:
+            st.info("Select at least two subscription plans and two devices to run the chi-square test.")
+        else:
+            chi2_result = chi_square_association(filtered_df, "subscription_type", "device")
+            _render_test_result(
+                "Plan vs. Device (Chi-Square Test of Independence)", chi2_result, "chi2", "Chi-square"
+            )
 
-        anova_result = anova_revenue_by_plan(filtered_df)
-        _render_test_result(
-            "Revenue by Plan (One-Way ANOVA)", anova_result, "f_stat", "F-statistic"
-        )
+        if filtered_df["subscription_type"].nunique() < 2:
+            st.info("Select at least two subscription plans to run the ANOVA.")
+        else:
+            anova_result = anova_revenue_by_plan(filtered_df)
+            _render_test_result(
+                "Revenue by Plan (One-Way ANOVA)", anova_result, "f_stat", "F-statistic"
+            )
 
-        ttest_result = ttest_age_by_lapsed_status(filtered_df)
-        _render_test_result(
-            "Age: Lapsed vs. Active (Welch's t-test)", ttest_result, "t_stat", "t-statistic"
-        )
+        if filtered_df["is_lapsed"].nunique() < 2:
+            st.info("Current filter selection has only one lapsed/active group; the t-test needs both.")
+        else:
+            ttest_result = ttest_age_by_lapsed_status(filtered_df)
+            _render_test_result(
+                "Age: Lapsed vs. Active (Welch's t-test)", ttest_result, "t_stat", "t-statistic"
+            )
 
 with tab_model:
     if (

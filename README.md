@@ -18,7 +18,11 @@ src/subscriber_analytics/
   cleaning.py                      # validation, derived columns (tenure, lapsed flag)
   analysis.py                      # EDA aggregations, hypothesis tests, churn-proxy model
   viz.py                           # Plotly figure builders
+  data_pipeline.py                 # shared load-and-clean pipeline (used by app.py and the static site builder)
 scripts/generate_sample_data.py    # synthetic CSV matching the real schema, for testing
+scripts/build_static_site.py       # renders docs/index.html, a static GitHub Pages snapshot
+app.py                             # Streamlit dashboard (repo root)
+docs/index.html                    # published static snapshot (GitHub Pages)
 tests/                             # pytest suite, one file per src module
 notebooks/01_subscriber_analysis.ipynb   # narrative walkthrough of the full analysis
 ```
@@ -78,6 +82,14 @@ Opens a local dashboard with sidebar filters (plan/country/device) and four
 tabs: Overview, Segments, Statistical Tests, and Churn-Risk Model. Sample
 data is generated automatically on first run if `data/raw/` is empty.
 
+**Note:** the Streamlit app and the static site builder (below) always load the
+synthetic sample CSV at `data/raw/netflix_userbase_sample.csv` via
+`data_pipeline.load_and_clean_data()` — this path is hardcoded and does **not**
+honor a real dataset placed elsewhere (e.g. `data/raw/netflix_userbase.csv`) or
+the `DATA_PATH` variable. They're demo/showcase surfaces built on the bundled
+sample data. To analyze the real Kaggle dataset, use the notebook (see "Running
+the analysis" above), which does honor `DATA_PATH`.
+
 **Static snapshot (GitHub Pages):**
 
 A read-only snapshot of the full dataset is published at
@@ -104,8 +116,9 @@ analytical workflow, not a verified churn signal — say so explicitly if you pr
 pytest
 ```
 
-18 tests covering loading validation, cleaning/derivation logic, each analysis function,
-and that every viz function returns a valid `Figure`.
+21 tests covering loading validation, cleaning/derivation logic, each analysis function,
+that every viz function returns a valid `Figure`, the shared data pipeline's
+load/generate/reuse behavior, and the static site builder.
 
 ## Building a GUI on top
 

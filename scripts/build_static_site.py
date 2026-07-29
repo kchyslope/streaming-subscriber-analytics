@@ -15,6 +15,8 @@ from subscriber_analytics.analysis import (
     anova_revenue_by_plan,
     chi_square_association,
     fit_churn_proxy_model,
+    revenue_by,
+    segment_counts,
     summarize,
     ttest_age_by_lapsed_status,
 )
@@ -23,6 +25,8 @@ from subscriber_analytics.viz import (
     age_distribution_histogram,
     churn_model_coefficients_chart,
     lapsed_rate_by_plan_chart,
+    revenue_by_plan_chart,
+    segment_share_pie,
     signups_over_time_chart,
 )
 
@@ -68,6 +72,10 @@ body { font-family: -apple-system, sans-serif; max-width: 1000px; margin: 2rem a
 {{ age_chart }}
 {{ lapsed_rate_chart }}
 
+<h2>Segments</h2>
+{{ revenue_chart }}
+{{ segment_share_chart }}
+
 <h2>Statistical Tests</h2>
 <div class="test-result">
   <strong>Plan vs. Device (Chi-Square)</strong><br>
@@ -107,6 +115,8 @@ def main(output_path: str | Path | None = None) -> Path:
     df = load_and_clean_data()
     stats = summarize(df)
     model_result = fit_churn_proxy_model(df)
+    revenue_df = revenue_by(df, "subscription_type")
+    segment_df = segment_counts(df, "subscription_type")
 
     html = _TEMPLATE.render(
         streamlit_url=STREAMLIT_URL_PLACEHOLDER,
@@ -114,6 +124,12 @@ def main(output_path: str | Path | None = None) -> Path:
         signups_chart=signups_over_time_chart(df).to_html(full_html=False, include_plotlyjs="cdn"),
         age_chart=age_distribution_histogram(df).to_html(full_html=False, include_plotlyjs=False),
         lapsed_rate_chart=lapsed_rate_by_plan_chart(df).to_html(full_html=False, include_plotlyjs=False),
+        revenue_chart=revenue_by_plan_chart(revenue_df, "subscription_type").to_html(
+            full_html=False, include_plotlyjs=False
+        ),
+        segment_share_chart=segment_share_pie(segment_df, "subscription_type").to_html(
+            full_html=False, include_plotlyjs=False
+        ),
         chi2=chi_square_association(df, "subscription_type", "device"),
         anova=anova_revenue_by_plan(df),
         ttest=ttest_age_by_lapsed_status(df),
@@ -123,7 +139,7 @@ def main(output_path: str | Path | None = None) -> Path:
         ),
     )
 
-    output_path.write_text(html)
+    output_path.write_text(html, encoding="utf-8")
     return output_path
 
 
